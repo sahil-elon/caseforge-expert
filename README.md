@@ -1,12 +1,12 @@
-# CaseForge
+# CaseForge Expert
 
 [![Tests](https://github.com/sahil-elon/caseforge/actions/workflows/tests.yml/badge.svg)](https://github.com/sahil-elon/caseforge/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-CaseForge is a beginner-friendly command-line toolkit for SU2-based aerospace CFD workflows.
+CaseForge Expert is an advanced SU2 workflow analytics toolkit built from the CaseForge v0.1.0 foundation. It is focused on expert-level SU2 history exploration, convergence diagnosis, plotting, configuration auditing, and automated CFD reporting.
 
-It helps users generate starter SU2 cases, inspect configuration files, validate common setup mistakes, explain SU2 config keys in simple language, analyze convergence history files, plot residuals, and generate Markdown simulation reports.
+> Note: The original CaseForge repository remains the basic/stable version. This repository is the advanced expert-focused version.
 
 ## Why CaseForge?
 

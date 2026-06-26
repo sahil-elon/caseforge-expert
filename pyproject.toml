@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "caseforge"
+name = "caseforge-expert"
 version = "0.1.0"
-description = "Beginner-friendly SU2 case generator, explainer, monitor, and report tool for aerospace CFD."
+description = "Advanced SU2 workflow analytics toolkit for history exploration, convergence diagnosis, plotting, and expert reporting."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 caseforge = "caseforge.cli:main"
+caseforge-expert = "caseforge.cli:main"
 
 [tool.setuptools]
 include-package-data = true
