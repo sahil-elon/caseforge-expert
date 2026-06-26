@@ -11,12 +11,16 @@ from caseforge.monitor import analyze_history, write_residual_plot
 from caseforge.report import write_case_report
 from caseforge.system_check import run_doctor, doctor_has_errors, doctor_has_warnings
 from caseforge.config_inspector import inspect_su2_config
+from caseforge.history_explorer import summarize_history
 
 app = typer.Typer(
-    help="CaseForge: beginner-friendly SU2 case generator, explainer, monitor, and report tool."
+    help="CaseForge Expert: SU2 workflow analytics toolkit for case inspection, history exploration, convergence diagnosis, and reporting."
 )
 
 console = Console()
+
+history_app = typer.Typer(help="Explore and analyze SU2 history files.")
+app.add_typer(history_app, name="history")
 
 
 @app.command()
@@ -25,6 +29,85 @@ def version():
     Show CaseForge version.
     """
     console.print("[bold green]CaseForge v0.1.0[/bold green]")
+    
+@history_app.command("summary")
+def history_summary(
+    history_file: str = typer.Argument(
+        ...,
+        help="Path to SU2 history.csv or history.dat file.",
+    ),
+):
+    """
+    Summarize a SU2 history file.
+    """
+    try:
+        summary = summarize_history(history_file)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to summarize history file:[/bold red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.print("[bold blue]CaseForge History Summary[/bold blue]")
+    console.print(f"File: {summary['file']}")
+    console.print(f"Rows detected: {summary['rows']}")
+    console.print(f"Iteration column: {summary['iteration_column']}")
+    console.print(f"First iteration: {summary['first_iteration']}")
+    console.print(f"Last iteration: {summary['last_iteration']}")
+
+    column_table = Table(title="Detected Column Groups")
+    column_table.add_column("Group", style="cyan")
+    column_table.add_column("Columns", style="white")
+
+    groups = summary["groups"]
+
+    column_table.add_row("Residuals", ", ".join(groups["residuals"]) or "None detected")
+    column_table.add_row("Coefficients", ", ".join(groups["coefficients"]) or "None detected")
+    column_table.add_row("Forces", ", ".join(groups["forces"]) or "None detected")
+    column_table.add_row("Moments", ", ".join(groups["moments"]) or "None detected")
+    column_table.add_row("Other numeric", ", ".join(groups["other_numeric"]) or "None detected")
+
+    console.print(column_table)
+
+    residual_table = Table(title="Residual Start/End Summary")
+    residual_table.add_column("Residual", style="cyan")
+    residual_table.add_column("Start")
+    residual_table.add_column("End")
+    residual_table.add_column("Change")
+
+    if summary["residual_summary"]:
+        for name, values in summary["residual_summary"].items():
+            residual_table.add_row(
+                name,
+                str(values["start"]),
+                str(values["end"]),
+                str(values["change"]),
+            )
+    else:
+        residual_table.add_row("None detected", "-", "-", "-")
+
+    console.print(residual_table)
+
+    coefficient_table = Table(title="Coefficient Summary")
+    coefficient_table.add_column("Coefficient", style="cyan")
+    coefficient_table.add_column("Start")
+    coefficient_table.add_column("End")
+    coefficient_table.add_column("Min")
+    coefficient_table.add_column("Max")
+    coefficient_table.add_column("Mean")
+
+    if summary["coefficient_summary"]:
+        for name, values in summary["coefficient_summary"].items():
+            coefficient_table.add_row(
+                name,
+                str(values["start"]),
+                str(values["end"]),
+                str(values["min"]),
+                str(values["max"]),
+                str(values["mean"]),
+            )
+    else:
+        coefficient_table.add_row("None detected", "-", "-", "-", "-", "-")
+
+    console.print(coefficient_table)
 
 
 @app.command()
