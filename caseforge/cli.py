@@ -11,7 +11,14 @@ from caseforge.monitor import analyze_history, write_residual_plot
 from caseforge.report import write_case_report
 from caseforge.system_check import run_doctor, doctor_has_errors, doctor_has_warnings
 from caseforge.config_inspector import inspect_su2_config
-from caseforge.history_explorer import summarize_history
+from caseforge.history_explorer import (
+    compare_iterations,
+    diagnose_history,
+    field_trend_summary,
+    get_iteration_snapshot,
+    plot_field_trend,
+    summarize_history,
+)
 
 app = typer.Typer(
     help="CaseForge Expert: SU2 workflow analytics toolkit for case inspection, history exploration, convergence diagnosis, and reporting."
@@ -108,6 +115,214 @@ def history_summary(
         coefficient_table.add_row("None detected", "-", "-", "-", "-", "-")
 
     console.print(coefficient_table)
+
+
+@history_app.command("get")
+def history_get(
+    history_file: str = typer.Argument(
+        ...,
+        help="Path to SU2 history.csv or history.dat file.",
+    ),
+    iteration: int = typer.Option(
+        ...,
+        "--iter",
+        help="Requested iteration number.",
+    ),
+):
+    """
+    Show all available values at a requested iteration.
+    """
+    try:
+        snapshot = get_iteration_snapshot(history_file, iteration)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to get iteration snapshot:[/bold red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.print("[bold blue]CaseForge Iteration Snapshot[/bold blue]")
+    console.print(f"File: {snapshot['file']}")
+    console.print(f"Requested iteration: {snapshot['requested_iteration']}")
+    console.print(f"Actual iteration used: {snapshot['actual_iteration']}")
+
+    if not snapshot["exact_match"]:
+        console.print("[yellow]Exact iteration not found. Nearest available iteration was used.[/yellow]")
+
+    table = Table(title="Iteration Values")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+
+    for key, value in snapshot["values"].items():
+        table.add_row(str(key), str(value))
+
+    console.print(table)
+
+
+@history_app.command("diff")
+def history_diff(
+    history_file: str = typer.Argument(
+        ...,
+        help="Path to SU2 history.csv or history.dat file.",
+    ),
+    iter_a: int = typer.Option(
+        ...,
+        "--iter-a",
+        help="First requested iteration.",
+    ),
+    iter_b: int = typer.Option(
+        ...,
+        "--iter-b",
+        help="Second requested iteration.",
+    ),
+):
+    """
+    Compare numeric history values between two iterations.
+    """
+    try:
+        result = compare_iterations(history_file, iter_a, iter_b)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to compare iterations:[/bold red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.print("[bold blue]CaseForge Iteration Difference[/bold blue]")
+    console.print(f"File: {result['file']}")
+    console.print(
+        f"Iteration A: requested {result['iteration_a_requested']}, "
+        f"used {result['iteration_a_actual']}"
+    )
+    console.print(
+        f"Iteration B: requested {result['iteration_b_requested']}, "
+        f"used {result['iteration_b_actual']}"
+    )
+
+    table = Table(title="Numeric Field Differences")
+    table.add_column("Field", style="cyan")
+    table.add_column("Iter A")
+    table.add_column("Iter B")
+    table.add_column("Delta")
+    table.add_column("% Change")
+
+    for field, values in result["comparison"].items():
+        percent_change = values["percent_change"]
+
+        if percent_change is None:
+            percent_text = "-"
+        else:
+            percent_text = f"{percent_change:.3f}%"
+
+        table.add_row(
+            field,
+            f"{values['a']:.6g}",
+            f"{values['b']:.6g}",
+            f"{values['delta']:.6g}",
+            percent_text,
+        )
+
+    console.print(table)
+
+
+@history_app.command("trend")
+def history_trend(
+    history_file: str = typer.Argument(
+        ...,
+        help="Path to SU2 history.csv or history.dat file.",
+    ),
+    field: str = typer.Option(
+        ...,
+        "--field",
+        help="History field to analyze, for example CL, CD, RMS_DENSITY.",
+    ),
+    from_iter: int | None = typer.Option(
+        None,
+        "--from-iter",
+        help="Optional starting iteration.",
+    ),
+    to_iter: int | None = typer.Option(
+        None,
+        "--to-iter",
+        help="Optional ending iteration.",
+    ),
+    plot: bool = typer.Option(
+        False,
+        "--plot",
+        help="Generate a plot for this field.",
+    ),
+):
+    """
+    Analyze one selected field over an iteration range.
+    """
+    try:
+        trend = field_trend_summary(
+            history_file,
+            field=field,
+            from_iter=from_iter,
+            to_iter=to_iter,
+        )
+    except Exception as exc:
+        console.print(f"[bold red]Failed to analyze field trend:[/bold red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.print("[bold blue]CaseForge Field Trend Summary[/bold blue]")
+    console.print(f"File: {trend['file']}")
+    console.print(f"Field: {trend['field']}")
+    console.print(f"Rows analyzed: {trend['rows']}")
+    console.print(f"Iteration range: {trend['first_iteration']} to {trend['last_iteration']}")
+
+    table = Table(title=f"{field} Trend")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value")
+
+    for key in ["start", "end", "min", "max", "mean", "std", "delta"]:
+        table.add_row(key, str(trend[key]))
+
+    console.print(table)
+
+    if plot:
+        output_file = f"history_plots/{field}_trend.png"
+
+        try:
+            saved_path = plot_field_trend(
+                history_file,
+                field=field,
+                output_file=output_file,
+                from_iter=from_iter,
+                to_iter=to_iter,
+            )
+        except Exception as exc:
+            console.print(f"[bold red]Failed to create plot:[/bold red] {exc}")
+            raise typer.Exit(code=1)
+
+        console.print(f"[bold green]Plot saved:[/bold green] {saved_path}")    
+
+@history_app.command("diagnose")
+def history_diagnose(
+    history_file: str = typer.Argument(
+        ...,
+        help="Path to SU2 history.csv or history.dat file.",
+    ),
+    final_window: int = typer.Option(
+        500,
+        "--final-window",
+        help="Number of final rows used for coefficient stability checks.",
+    ),
+):
+    """
+    Generate basic engineering notes from a SU2 history file.
+    """
+    try:
+        diagnosis = diagnose_history(history_file, final_window=final_window)
+    except Exception as exc:
+        console.print(f"[bold red]Failed to diagnose history file:[/bold red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.print("[bold blue]CaseForge History Diagnosis[/bold blue]")
+    console.print(f"File: {diagnosis['file']}")
+    console.print(f"Rows: {diagnosis['rows']}")
+    console.print(f"First iteration: {diagnosis['first_iteration']}")
+    console.print(f"Last iteration: {diagnosis['last_iteration']}")
+
+    console.print("\n[bold]Diagnostic Notes[/bold]")
+
+    for note in diagnosis["notes"]:
+        console.print(f"- {note}")
 
 
 @app.command()

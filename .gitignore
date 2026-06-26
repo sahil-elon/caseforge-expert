@@ -35,3 +35,7 @@ demo_case/
 residual_plot.png
 config_explanation.md
 report.md
+
+# Local manual testing files
+test_cases/
+history_plots/
