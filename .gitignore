@@ -1,0 +1,37 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build/package outputs
+build/
+dist/
+*.egg-info/
+caseforge.egg-info/
+
+# Test/cache folders
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Generated CaseForge outputs
+caseforge_output/
+caseforge_output_2/
+demo_case/
+*.log
+residual_plot.png
+config_explanation.md
+report.md
