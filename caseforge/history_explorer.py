@@ -50,34 +50,46 @@ def load_history_file(history_file: str | Path) -> pd.DataFrame:
 
 def detect_iteration_column(df: pd.DataFrame) -> str:
     """
-    Detect which column represents iteration number.
+    Detect which column represents the main iteration number.
 
-    Common SU2 names can be:
-    - Iter
-    - ITER
-    - Inner_Iter
-    - Outer_Iter
+    SU2 history files may contain multiple iteration-like columns:
     - Time_Iter
+    - Outer_Iter
+    - Inner_Iter
 
-    If none are found, we safely use the first column.
+    For steady/internal convergence history, Inner_Iter is usually the most useful
+    column because it increases row by row.
+
+    Therefore we prefer Inner_Iter first.
     """
-    possible_names = {
+
+    def normalize(name: str) -> str:
+        return (
+            str(name)
+            .strip()
+            .strip('"')
+            .strip("'")
+            .lower()
+            .replace(" ", "")
+            .replace("-", "_")
+        )
+
+    normalized_columns = {normalize(col): col for col in df.columns}
+
+    priority_names = [
+        "inner_iter",
+        "inneriter",
         "iter",
         "iteration",
-        "inneriter",
-        "outeriter",
-        "timeiter",
-        "inner_iter",
         "outer_iter",
+        "outeriter",
         "time_iter",
-    }
+        "timeiter",
+    ]
 
-    for col in df.columns:
-        simplified = col.lower().replace(" ", "").replace("-", "_")
-        compact = simplified.replace("_", "")
-
-        if simplified in possible_names or compact in possible_names:
-            return col
+    for name in priority_names:
+        if name in normalized_columns:
+            return normalized_columns[name]
 
     return df.columns[0]
 

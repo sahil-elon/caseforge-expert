@@ -1,5 +1,6 @@
 from caseforge.history_explorer import (
     compare_iterations,
+    detect_iteration_column,
     diagnose_history,
     field_trend_summary,
     get_iteration_snapshot,
@@ -117,3 +118,31 @@ def test_diagnose_history_returns_notes(tmp_path):
     assert len(diagnosis["notes"]) > 0
     assert any("Residual behavior" in note for note in diagnosis["notes"])
     assert any("Diagnostic note" in note for note in diagnosis["notes"])
+
+
+def test_detect_iteration_column_prefers_inner_iter_for_su2_history(tmp_path):
+    history_file = tmp_path / "real_su2_style_history.csv"
+
+    history_file.write_text(
+        "\n".join(
+            [
+                'Time_Iter,Outer_Iter,Inner_Iter,"rms[Rho]","rms[RhoU]","rms[RhoV]","rms[RhoE]","rms[nu]"',
+                "0,0,0,-1.700114026,-10.65876299,-10.98403213,3.805410577,-4.941834433",
+                "0,0,1,-2.093487006,0.61603206,0.60529815,3.410559693,-5.473403567",
+                "0,0,998,-4.000000000,-1.70000000,-1.80000000,1.400000000,-5.900000000",
+                "0,0,999,-4.086000000,-1.71600000,-1.82700000,1.327000000,-5.921000000",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    summary = summarize_history(history_file)
+    snapshot = get_iteration_snapshot(history_file, 998)
+
+    assert summary["iteration_column"] == "Inner_Iter"
+    assert summary["first_iteration"] == 0
+    assert summary["last_iteration"] == 999
+
+    assert snapshot["requested_iteration"] == 998
+    assert snapshot["actual_iteration"] == 998
+    assert snapshot["exact_match"] is True   
